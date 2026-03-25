@@ -1,0 +1,136 @@
+const express = require('express');
+const prisma = require('../config/prisma');
+const { authenticate, requireRole } = require('../middleware/auth');
+const { body, validationResult } = require('express-validator');
+
+const router = express.Router();
+router.use(authenticate, requireRole('ADMIN'));
+
+// GET /api/admin/overview
+router.get('/overview', async (req, res) => {
+  try {
+    const [students, teachers, subjects, quizzes, contents] = await Promise.all([
+      prisma.student.count(),
+      prisma.teacher.count(),
+      prisma.subject.count(),
+      prisma.quiz.count(),
+      prisma.content.count()
+    ]);
+
+    const recentStudents = await prisma.user.findMany({
+      where: { role: 'STUDENT' },
+      include: { student: true },
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    });
+
+    res.json({ success: true, data: { stats: { students, teachers, subjects, quizzes, contents }, recentStudents } });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/admin/users
+router.get('/users', async (req, res) => {
+  try {
+    const { role } = req.query;
+    const where = role ? { role: role.toUpperCase() } : {};
+    const users = await prisma.user.findMany({
+      where,
+      include: { student: true, teacher: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    const usersWithoutPasswords = users.map(({ password, ...u }) => u);
+    res.json({ success: true, data: usersWithoutPasswords });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /api/admin/subjects/add
+router.post('/subjects/add', [
+  body('name').trim().isLength({ min: 2 }),
+  body('class').isInt({ min: 1, max: 6 }),
+  body('isLang').optional().isBoolean(),
+  body('icon').optional().trim(),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(422).json({ success: false, errors: errors.array() });
+
+    const { name, nameHi, namePa, class: classLevel, isLang, icon } = req.body;
+    const subject = await prisma.subject.create({
+      data: {
+        name, nameHi: nameHi || '', namePa: namePa || '',
+        class: parseInt(classLevel),
+        isLang: isLang || false,
+        icon: icon || '📚'
+      }
+    });
+
+    res.status(201).json({ success: true, message: 'Subject added!', data: subject });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /api/admin/chapters/add
+router.post('/chapters/add', [
+  body('subjectId').isInt(),
+  body('title').trim().isLength({ min: 3 }),
+  body('order').optional().isInt({ min: 1 }),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(422).json({ success: false, errors: errors.array() });
+
+    const { subjectId, title, titleHi, titlePa, order } = req.body;
+    const chapter = await prisma.chapter.create({
+      data: {
+        subjectId: parseInt(subjectId),
+        title, titleHi: titleHi || '', titlePa: titlePa || '',
+        order: order ? parseInt(order) : 1
+      }
+    });
+
+    res.status(201).json({ success: true, message: 'Chapter added!', data: chapter });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /api/admin/content/add
+router.post('/content/add', [
+  body('chapterId').isInt(),
+  body('text').trim().isLength({ min: 5 }),
+  body('language').isIn(['en', 'hi', 'pa']),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(422).json({ success: false, errors: errors.array() });
+
+    const { chapterId, text, videoUrl, language } = req.body;
+    const content = await prisma.content.create({
+      data: {
+        chapterId: parseInt(chapterId),
+        text, videoUrl: videoUrl || null, language
+      }
+    });
+
+    res.status(201).json({ success: true, message: 'Content added!', data: content });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/admin/users/:id
+router.delete('/users/:id', async (req, res) => {
+  try {
+    await prisma.user.delete({ where: { id: parseInt(req.params.id) } });
+    res.json({ success: true, message: 'User deleted' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+module.exports = router;

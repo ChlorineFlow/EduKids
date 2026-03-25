@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #FF6B35;
+  --secondary: #FFD700;
+  --purple: #7C3AED;
+  --pink: #EC4899;
+  --teal: #14B8A6;
+  --green: #22C55E;
+  --bg-light: #FFF9F5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Nunito', 'Comic Sans MS', cursive;
+  background-color: var(--bg-light);
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: 'Fredoka One', cursive;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+
+/* Star animation */
+@keyframes starPop {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.star-pop { animation: starPop 0.5s ease forwards; }
+
+/* Confetti effect placeholder */
+@keyframes confettiFall {
+  0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* Card hover */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 35px rgba(255, 107, 53, 0.2);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #FF6B35, #FFD700);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Kids button */
+.btn-kids {
+  @apply font-bold rounded-2xl px-6 py-3 transition-all duration-200 active:scale-95 shadow-md;
+}
+
+/* Loading dots */
+@keyframes dotBounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.loading-dot {
+  animation: dotBounce 1.4s infinite ease-in-out;
+}
+.loading-dot:nth-child(1) { animation-delay: -0.32s; }
+.loading-dot:nth-child(2) { animation-delay: -0.16s; }
