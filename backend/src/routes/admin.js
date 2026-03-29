@@ -132,5 +132,65 @@ router.delete('/users/:id', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+// GET /api/admin/subjects/all — get ALL subjects across all classes
+router.get('/subjects/all', async (req, res) => {
+  try {
+    const subjects = await prisma.subject.findMany({
+      orderBy: [{ class: 'asc' }, { id: 'asc' }]
+    });
+    res.json({ success: true, data: subjects });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 
+// GET /api/admin/content/chapter/:chapterId
+router.get('/content/chapter/:chapterId', async (req, res) => {
+  try {
+    const contents = await prisma.content.findMany({
+      where: { chapterId: parseInt(req.params.chapterId) },
+      orderBy: { language: 'asc' }
+    });
+    res.json({ success: true, data: contents });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/admin/content/:id
+router.put('/content/:id', async (req, res) => {
+  try {
+    const { text, videoUrl, language } = req.body;
+    if (!text) return res.status(400).json({ success: false, message: 'Text required' });
+    const updated = await prisma.content.update({
+      where: { id: parseInt(req.params.id) },
+      data: { text, videoUrl: videoUrl || null, language }
+    });
+    res.json({ success: true, message: 'Updated!', data: updated });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/admin/content/:id
+router.delete('/content/:id', async (req, res) => {
+  try {
+    await prisma.content.delete({ where: { id: parseInt(req.params.id) } });
+    res.json({ success: true, message: 'Deleted!' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+// GET /api/admin/chapters/subject/:subjectId — get chapters for any subject
+router.get('/chapters/subject/:subjectId', async (req, res) => {
+  try {
+    const chapters = await prisma.chapter.findMany({
+      where: { subjectId: parseInt(req.params.subjectId) },
+      orderBy: { order: 'asc' }
+    });
+    res.json({ success: true, data: chapters });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 module.exports = router;

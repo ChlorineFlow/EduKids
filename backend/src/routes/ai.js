@@ -9,7 +9,7 @@ const router = express.Router();
 // Stricter rate limit for AI endpoints
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 10,
+  max: 100,
   message: { success: false, message: 'Too many AI requests. Please wait a moment.' }
 });
 

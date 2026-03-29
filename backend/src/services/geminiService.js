@@ -14,7 +14,7 @@ const getGenAI = () => {
 
 const askGemini = async (question, classLevel = 3, subject = '', language = 'en') => {
   const ai = getGenAI();
-  const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   const langInstruction = {
     en: 'Respond in simple English.',
@@ -45,7 +45,7 @@ Please answer in a friendly, simple way:`;
 
 const getQuizHint = async (question, options, classLevel = 3, language = 'en') => {
   const ai = getGenAI();
-  const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   const langInstruction = {
     en: 'Give the hint in simple English.',

@@ -122,7 +122,7 @@ const StudentDashboard = () => {
                 <div key={p.id}>
                   <div className="flex justify-between text-sm font-bold text-gray-600 mb-1">
                     <span>{p.subject?.icon} {p.subject?.name}</span>
-                    <span>{p.completionPercentage}%</span>
+                    <span>{Math.min(p.completionPercentage, 100)}%</span>
                   </div>
                   <div className="bg-gray-100 rounded-full h-3">
                     <motion.div
