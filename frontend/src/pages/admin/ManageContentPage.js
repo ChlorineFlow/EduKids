@@ -1357,21 +1357,40 @@ const ManageContentPage = () => {
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-gray-700 font-bold mb-1 text-sm">
-                      Language
-                    </label>
-                    <select
-                      value={editForm.language}
-                      onChange={(e) =>
-                        setEditForm((f) => ({ ...f, language: e.target.value }))
-                      }
-                      className={selectCls}
-                    >
-                      <option value="en">🇬🇧 English</option>
-                      <option value="hi">🇮🇳 Hindi</option>
-                      <option value="pa">🟡 Punjabi</option>
-                    </select>
-                  </div>
+  <label className="block text-gray-700 font-bold mb-1 text-sm">
+    Language
+  </label>
+  {allSubjects.find(s => s.id.toString() === manageSubject)?.isLang ? (
+    <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+      <span className="text-2xl">
+        {editForm.language === 'hi' ? '🇮🇳' :
+         editForm.language === 'en' ? '🇬🇧' : '🟡'}
+      </span>
+      <div>
+        <p className="font-bold text-gray-700 text-sm">
+          {editForm.language === 'hi' ? 'Hindi (हिंदी)' :
+           editForm.language === 'en' ? 'English' :
+           'Punjabi (ਪੰਜਾਬੀ)'}
+        </p>
+        <p className="text-xs text-orange-500 font-semibold mt-1">
+          🔒 Language locked — this is a language subject
+        </p>
+      </div>
+    </div>
+  ) : (
+    <select
+      value={editForm.language}
+      onChange={(e) =>
+        setEditForm((f) => ({ ...f, language: e.target.value }))
+      }
+      className={selectCls}
+    >
+      <option value="en">🇬🇧 English</option>
+      <option value="hi">🇮🇳 Hindi</option>
+      <option value="pa">🟡 Punjabi</option>
+    </select>
+  )}
+</div>
                   <div>
                     <label className="block text-gray-700 font-bold mb-1 text-sm">
                       Content Text *
