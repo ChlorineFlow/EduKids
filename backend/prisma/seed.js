@@ -128,7 +128,7 @@ async function main() {
     const teacherRecord = await prisma.teacher.findFirst();
     if (teacherRecord) {
       const existingQuiz = await prisma.quiz.findFirst({ where: { title: 'Maths Quiz 1 - Addition' } });
-      if (!existingQuiz) {
+      if (false) {
         const quiz = await prisma.quiz.create({
           data: {
             subjectId: mathClass4.id,

@@ -40,7 +40,7 @@ const CreateQuizPage = () => {
   const [showAttempts, setShowAttempts] = useState(null);
   const [attempts, setAttempts] = useState([]);
   const [reviewingAttempt, setReviewingAttempt] = useState(null);
-
+  const [deleteQuizConfirm, setDeleteQuizConfirm] = useState(null);
   const showSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
   const showError = (msg) => { setError(msg); setTimeout(() => setError(''), 4000); };
 
@@ -62,6 +62,20 @@ const CreateQuizPage = () => {
       setMyQuizzes(r.data.data || []);
     } catch {}
   };
+
+  const handleDeleteQuiz = async (quizId) => {
+  setLoading(true);
+  try {
+    await api.delete(`/teacher/quiz/${quizId}`);
+    showSuccess('✅ Quiz deleted successfully! All student records removed.');
+    setDeleteQuizConfirm(null);
+    fetchMyQuizzes();
+  } catch (err) {
+    showError(err.response?.data?.message || 'Failed to delete quiz');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchChapters = async (subjectId) => {
     try {
@@ -541,41 +555,102 @@ const CreateQuizPage = () => {
                       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                       className="bg-white rounded-3xl p-5 shadow-card">
                       <div className="flex items-start justify-between">
-                        <div>
+                        <div className="flex-1">
                           <div className="font-bold text-gray-800 text-lg">{quiz.title}</div>
-                          <div className="text-sm text-gray-500 mt-1">
-                            {quiz.subject?.icon} {quiz.subject?.name} •
-                            Class {quiz.classLevel} •
-                            {quiz._count?.questions} questions •
-                            {quiz._count?.attempts} attempts
-                            {quiz.timerMinutes && ` • ⏱️ ${quiz.timerMinutes} min`}
+                          {quiz.description && (
+                            <p className="text-xs text-gray-400 mt-0.5">{quiz.description}</p>
+                          )}
+                          <div className="text-sm text-gray-500 mt-1 flex flex-wrap gap-2">
+                            <span>{quiz.subject?.icon} {quiz.subject?.name}</span>
+                            <span>• Class {quiz.classLevel}</span>
+                            <span>• {quiz._count?.questions} questions</span>
+                            <span>• {quiz._count?.attempts} attempts</span>
+                            {quiz.timerMinutes && <span>• ⏱️ {quiz.timerMinutes} min</span>}
                           </div>
                         </div>
-                        <div className="flex gap-2 flex-col items-end">
-                          <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                            quiz.isPublished ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {quiz.isPublished ? '✅ Published' : '📝 Draft'}
-                          </span>
-                        </div>
+                        <span className={`text-xs font-bold px-3 py-1 rounded-full flex-shrink-0 ml-3 ${
+                          quiz.isPublished
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {quiz.isPublished ? '✅ Published' : '📝 Draft'}
+                        </span>
                       </div>
-                      <div className="flex gap-2 mt-3">
+
+                      <div className="flex gap-2 mt-4 flex-wrap">
                         <button onClick={() => viewAttempts(quiz.id)}
                           className="btn-kids bg-blue-50 text-blue-600 hover:bg-blue-100 text-sm px-4 py-2">
                           👁️ View Attempts ({quiz._count?.attempts})
                         </button>
+
+                        {!quiz.isPublished && (
+                          <button onClick={() => {
+                            setCreatedQuiz(quiz);
+                            setStep('questions');
+                            setQuestions(quiz.questions || []);
+                          }}
+                            className="btn-kids bg-purple-50 text-purple-600 hover:bg-purple-100 text-sm px-4 py-2">
+                            ✏️ Continue Editing
+                          </button>
+                        )}
+
                         {!quiz.isPublished && (
                           <button onClick={async () => {
+                            if (quiz._count?.questions === 0) {
+                              showError('Add at least one question before publishing!');
+                              return;
+                            }
                             await api.post(`/teacher/quiz/publish/${quiz.id}`);
+                            showSuccess('🎉 Quiz published!');
                             fetchMyQuizzes();
                           }}
                             className="btn-kids bg-green-50 text-green-600 hover:bg-green-100 text-sm px-4 py-2">
                             🚀 Publish
                           </button>
                         )}
+
+                        <button onClick={() => setDeleteQuizConfirm(quiz.id)}
+                          className="btn-kids bg-red-50 text-red-500 hover:bg-red-100 text-sm px-4 py-2 ml-auto">
+                          🗑️ Delete
+                        </button>
                       </div>
                     </motion.div>
                   ))}
+
+                  {/* Delete Confirmation Modal */}
+                  <AnimatePresence>
+                    {deleteQuizConfirm && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                        onClick={() => setDeleteQuizConfirm(null)}>
+                        <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }}
+                          className="bg-white rounded-4xl p-6 max-w-sm w-full shadow-xl text-center"
+                          onClick={e => e.stopPropagation()}>
+                          <div className="text-5xl mb-3">⚠️</div>
+                          <h3 className="font-display text-2xl text-gray-800 mb-2">Delete Quiz?</h3>
+                          <p className="text-gray-500 text-sm mb-2">This will permanently delete:</p>
+                          <ul className="text-sm text-red-500 font-semibold mb-5 space-y-1 text-left bg-red-50 rounded-2xl p-4">
+                            <li>❌ All questions in this quiz</li>
+                            <li>❌ All student attempts</li>
+                            <li>❌ All marks awarded to students</li>
+                            <li>❌ All teacher comments</li>
+                          </ul>
+                          <p className="text-xs text-gray-400 mb-5">This cannot be undone!</p>
+                          <div className="flex gap-3">
+                            <button onClick={() => setDeleteQuizConfirm(null)}
+                              className="flex-1 btn-kids bg-gray-100 text-gray-600">
+                              Cancel
+                            </button>
+                            <button onClick={() => handleDeleteQuiz(deleteQuizConfirm)}
+                              disabled={loading}
+                              className="flex-1 btn-kids bg-red-500 text-white disabled:opacity-60">
+                              {loading ? '⏳' : '🗑️ Yes, Delete'}
+                            </button>
+                          </div>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ) : (
                 // Attempts view
