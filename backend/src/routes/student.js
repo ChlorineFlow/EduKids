@@ -198,98 +198,161 @@ router.get("/quiz/:quizId", async (req, res) => {
   }
 });
 
-// POST /api/student/quiz/attempt
-router.post("/quiz/attempt", async (req, res) => {
+// POST /api/student/quiz/attempt (enhanced)
+router.post('/quiz/attempt', async (req, res) => {
   try {
     const student = req.user.student;
-    const { quizId, answers } = req.body; // answers: [{questionId, answer}]
+    const { quizId, answers } = req.body;
 
     if (!quizId || !Array.isArray(answers)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid request" });
+      return res.status(400).json({ success: false, message: 'Invalid request' });
     }
 
     const questions = await prisma.question.findMany({
-      where: { quizId: parseInt(quizId) },
+      where: { quizId: parseInt(quizId) }
     });
 
-    let totalMarks = 0;
+    const quiz = await prisma.quiz.findUnique({
+      where: { id: parseInt(quizId) }
+    });
+
+    let totalMarks = questions.reduce((sum, q) => sum + q.marks, 0);
     let earnedMarks = 0;
+
+    // Create attempt first
+    const attempt = await prisma.quizAttempt.create({
+      data: {
+        studentId: student.id,
+        quizId: parseInt(quizId),
+        totalMarks,
+        earnedMarks: 0,
+        percentage: 0,
+        stars: 0,
+        isReviewed: false
+      }
+    });
+
     const results = [];
 
     for (const ans of answers) {
-      const question = questions.find((q) => q.id === ans.questionId);
+      const question = questions.find(q => q.id === ans.questionId);
       if (!question) continue;
 
-      const isCorrect = question.correctAnswer === ans.answer;
-      const marksObtained = isCorrect ? question.marks : 0;
+      let isCorrect = null;
+      let marksObtained = 0;
 
-      totalMarks += question.marks;
-      earnedMarks += marksObtained;
+      // Auto-grade MCQ only
+      if (question.questionType === 'MCQ' && question.correctAnswer) {
+        isCorrect = question.correctAnswer === ans.answer;
+        marksObtained = isCorrect ? question.marks : 0;
+        earnedMarks += marksObtained;
+      }
+      // Fill in blank — auto grade if correct answer set
+      else if (question.questionType === 'FILL_IN_BLANK' && question.correctAnswer) {
+        isCorrect = question.correctAnswer.toLowerCase().trim() === ans.answer.toLowerCase().trim();
+        marksObtained = isCorrect ? question.marks : 0;
+        earnedMarks += marksObtained;
+      }
+      // Descriptive & Match — needs teacher review (marks = 0 until reviewed)
+      else {
+        isCorrect = null;
+        marksObtained = 0;
+      }
 
       await prisma.studentAnswer.create({
         data: {
           studentId: student.id,
           questionId: question.id,
-          answer: ans.answer,
+          attemptId: attempt.id,
+          answer: ans.answer || '',
           marksObtained,
-        },
+          isCorrect,
+          teacherReviewed: ['MCQ', 'FILL_IN_BLANK'].includes(question.questionType)
+        }
       });
 
       results.push({
         questionId: question.id,
+        questionType: question.questionType,
         yourAnswer: ans.answer,
         correctAnswer: question.correctAnswer,
         isCorrect,
         marksObtained,
+        needsReview: question.questionType === 'DESCRIPTIVE' || question.questionType === 'MATCH_THE_FOLLOWING'
       });
     }
 
-    const percentage =
-      totalMarks > 0 ? Math.round((earnedMarks / totalMarks) * 100) : 0;
-    const stars =
-      percentage >= 90 ? 3 : percentage >= 60 ? 2 : percentage >= 30 ? 1 : 0;
+    const percentage = totalMarks > 0 ? Math.round((earnedMarks / totalMarks) * 100) : 0;
+    const stars = percentage >= 90 ? 3 : percentage >= 60 ? 2 : percentage >= 30 ? 1 : 0;
 
-    // Update leaderboard
-    await prisma.leaderboard.upsert({
-      where: { studentId: student.id },
-      update: {
-        score: { increment: earnedMarks },
-        stars: { increment: stars },
-      },
-      create: {
-        studentId: student.id,
-        class: student.class,
-        score: earnedMarks,
-        stars,
-      },
+    // Update attempt
+    await prisma.quizAttempt.update({
+      where: { id: attempt.id },
+      data: { earnedMarks, percentage, stars }
     });
 
-    // Award badge if 100%
-    if (percentage === 100) {
-      await prisma.leaderboard.update({
+    // Check if needs teacher review
+    const needsReview = results.some(r => r.needsReview);
+
+    // Auto-update leaderboard for fully auto-graded quizzes
+    if (!needsReview) {
+      await prisma.leaderboard.upsert({
         where: { studentId: student.id },
-        data: { badges: { increment: 1 } },
+        update: {
+          score: { increment: earnedMarks },
+          stars: { increment: stars }
+        },
+        create: {
+          studentId: student.id,
+          class: student.class,
+          score: earnedMarks,
+          stars
+        }
       });
     }
 
     res.json({
       success: true,
       data: {
+        attemptId: attempt.id,
         results,
         summary: {
           totalMarks,
           earnedMarks,
           percentage,
           stars,
-          badges: percentage === 100 ? 1 : 0,
-        },
-      },
+          needsReview,
+          message: needsReview
+            ? '📝 Some answers need teacher review. Check back for final marks!'
+            : `🎉 Quiz completed! You scored ${earnedMarks}/${totalMarks}`
+        }
+      }
     });
   } catch (error) {
-    console.error("Quiz attempt error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error('Quiz attempt error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/student/quiz-results - see all quiz results
+router.get('/quiz-results', async (req, res) => {
+  try {
+    const student = req.user.student;
+    const attempts = await prisma.quizAttempt.findMany({
+      where: { studentId: student.id },
+      include: {
+        quiz: {
+          include: {
+            subject: true,
+            chapter: true
+          }
+        }
+      },
+      orderBy: { submittedAt: 'desc' }
+    });
+    res.json({ success: true, data: attempts });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -349,6 +412,29 @@ router.get("/leaderboard", async (req, res) => {
     res.json({ success: true, data: board });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET /api/student/quiz-results
+router.get('/quiz-results', async (req, res) => {
+  try {
+    const student = req.user.student;
+    const attempts = await prisma.quizAttempt.findMany({
+      where: { studentId: student.id },
+      include: {
+        quiz: {
+          include: { subject: true, chapter: true }
+        },
+        answers: {
+          include: { question: true },
+          orderBy: { id: 'asc' }
+        }
+      },
+      orderBy: { submittedAt: 'desc' }
+    });
+    res.json({ success: true, data: attempts });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

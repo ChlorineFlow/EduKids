@@ -26,11 +26,19 @@ const StudentDashboard = () => {
   const lang = user?.student?.language || 'en';
 
   useEffect(() => {
-    api.get('/student/dashboard')
-      .then(res => setData(res.data.data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  Promise.all([
+    api.get('/student/dashboard'),
+    api.get('/student/quiz-results')
+  ])
+    .then(([dashRes, quizRes]) => {
+      setData({
+        ...dashRes.data.data,
+        quizResults: quizRes.data.data || []
+      });
+    })
+    .catch(console.error)
+    .finally(() => setLoading(false));
+}, []);
 
   const handleClassChange = async (newClass) => {
     try {
@@ -137,6 +145,81 @@ const StudentDashboard = () => {
             </div>
           </motion.div>
         )}
+
+{/* Quiz Results */}
+{data?.quizResults?.length > 0 && (
+  <motion.div
+    initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.85 }}
+    className="bg-white rounded-3xl p-6 shadow-card mb-6"
+  >
+    <h2 className="font-display text-2xl text-gray-800 mb-4">🎯 My Quiz Results</h2>
+    <div className="space-y-4">
+      {data.quizResults.map((attempt, i) => (
+        <div key={attempt.id} className="border-2 border-gray-100 rounded-2xl p-4 hover:border-orange-200 transition-colors">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <div className="font-bold text-gray-800">{attempt.quiz?.title}</div>
+              <div className="text-sm text-gray-500">
+                {attempt.quiz?.subject?.icon} {attempt.quiz?.subject?.name}
+                {attempt.quiz?.chapter && ` • ${attempt.quiz.chapter.title}`}
+              </div>
+            </div>
+            <div className="text-right">
+              {attempt.isReviewed ? (
+                <div>
+                  <div className="font-display text-2xl text-orange-500">
+                    {attempt.earnedMarks}/{attempt.totalMarks}
+                  </div>
+                  <div className="text-xs text-gray-500">{attempt.percentage}%</div>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 text-yellow-600 text-xs font-bold px-3 py-1 rounded-full">
+                  ⏳ Pending Review
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Stars */}
+          <div className="flex gap-1 mb-2">
+            {[1,2,3].map(s => (
+              <span key={s} className={s <= attempt.stars ? 'text-yellow-400' : 'text-gray-200'}>⭐</span>
+            ))}
+          </div>
+
+          {/* Teacher comments on individual answers */}
+          {attempt.answers?.some(a => a.teacherComment) && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs font-bold text-gray-500 mb-2">👩‍🏫 Teacher Feedback:</p>
+              {attempt.answers.filter(a => a.teacherComment).map(ans => (
+                <div key={ans.id} className="bg-blue-50 rounded-xl p-3 mb-2">
+                  <p className="text-xs text-gray-600 font-semibold mb-1">
+                    Q: {ans.question?.question?.substring(0, 60)}...
+                  </p>
+                  <p className="text-xs text-blue-700 font-semibold">
+                    💬 {ans.teacherComment}
+                  </p>
+                  <div className="flex gap-2 mt-1">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      ans.isCorrect ? 'bg-green-100 text-green-700' :
+                      ans.isCorrect === false ? 'bg-red-100 text-red-600' :
+                      'bg-gray-100 text-gray-500'
+                    }`}>
+                      {ans.isCorrect ? '✅ Correct' : ans.isCorrect === false ? '❌ Wrong' : '⏳ Pending'}
+                    </span>
+                    <span className="text-xs text-gray-500 font-semibold">
+                      Marks: {ans.marksObtained}/{ans.question?.marks}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  </motion.div>
+)}
 
         {/* Change Class */}
         <motion.div
