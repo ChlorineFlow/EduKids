@@ -98,25 +98,41 @@ router.get("/content/:chapterId", async (req, res) => {
         .json({ success: false, message: "Chapter not found" });
 
     // Language logic: language subjects are never translated
-    let language = student.language;
-    if (chapter.subject.isLang) {
-      // For Hindi subject, use hi; for English, use en
-      if (chapter.subject.name.toLowerCase() === "hindi") language = "hi";
-      else if (chapter.subject.name.toLowerCase() === "english")
-        language = "en";
-    }
+    // Language logic: language subjects are never translated
+let language = student.language;
+if (chapter.subject.isLang) {
+  const subjectName = chapter.subject.name.toLowerCase().trim();
+  if (subjectName === 'hindi') {
+    language = 'hi';
+  } else if (subjectName === 'english') {
+    language = 'en';
+  } else if (
+    subjectName === 'punjabi' ||
+    subjectName === 'ਪੰਜਾਬੀ' ||
+    subjectName.includes('punjab')
+  ) {
+    language = 'pa';
+  }
+}
 
     const content = await prisma.content.findMany({
       where: { chapterId: parseInt(req.params.chapterId), language },
     });
 
-    // Fallback to English if no content in selected language
-    let finalContent = content;
-    if (content.length === 0) {
-      finalContent = await prisma.content.findMany({
-        where: { chapterId: parseInt(req.params.chapterId), language: "en" },
-      });
-    }
+    
+    // Fallback logic
+let finalContent = content;
+if (content.length === 0) {
+  if (chapter.subject.isLang) {
+    // Language subjects should NOT fallback — keep empty
+    finalContent = [];
+  } else {
+    // Non-language subjects fallback to English
+    finalContent = await prisma.content.findMany({
+      where: { chapterId: parseInt(req.params.chapterId), language: 'en' }
+    });
+  }
+}
 
     // Update progress — capped at 100%
     const existingProgress = await prisma.progress.findUnique({
