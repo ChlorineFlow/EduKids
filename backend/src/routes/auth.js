@@ -173,6 +173,7 @@ router.post('/verify-otp', otpValidation, async (req, res) => {
 });
 
 // POST /api/auth/resend-otp
+// POST /api/auth/resend-otp
 router.post('/resend-otp', async (req, res) => {
   try {
     const { email } = req.body;
@@ -182,6 +183,7 @@ router.post('/resend-otp', async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: 'Email not found' });
     if (user.verified) return res.status(400).json({ success: false, message: 'Email already verified' });
 
+    const { generateOTP, sendOTPEmail } = require('../services/emailService');
     const otp = generateOTP();
     const expiry = new Date(Date.now() + 5 * 60 * 1000);
 
