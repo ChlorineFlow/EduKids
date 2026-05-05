@@ -126,10 +126,53 @@ router.post('/content/add', [
 // DELETE /api/admin/users/:id
 router.delete('/users/:id', async (req, res) => {
   try {
-    await prisma.user.delete({ where: { id: parseInt(req.params.id) } });
-    res.json({ success: true, message: 'User deleted' });
+    const userId = parseInt(req.params.id);
+
+    // Find if user is a teacher
+    const teacher = await prisma.teacher.findUnique({
+      where: { userId }
+    });
+
+    // If teacher exists, delete their quizzes first
+    if (teacher) {
+      // Delete all quiz attempts and answers linked to teacher's quizzes
+      const quizzes = await prisma.quiz.findMany({
+        where: { teacherId: teacher.id }
+      });
+
+      for (const quiz of quizzes) {
+        // Delete student answers for this quiz's attempts
+        await prisma.studentAnswer.deleteMany({
+          where: { attempt: { quizId: quiz.id } }
+        });
+        // Delete quiz attempts
+        await prisma.quizAttempt.deleteMany({
+          where: { quizId: quiz.id }
+        });
+        // Delete questions
+        await prisma.question.deleteMany({
+          where: { quizId: quiz.id }
+        });
+      }
+
+      // Delete all quizzes by this teacher
+      await prisma.quiz.deleteMany({
+        where: { teacherId: teacher.id }
+      });
+
+      // Delete remarks by this teacher
+      await prisma.remark.deleteMany({
+        where: { teacherId: teacher.id }
+      });
+    }
+
+    // Now safely delete the user (cascades to teacher record)
+    await prisma.user.delete({ where: { id: userId } });
+
+    res.json({ success: true, message: 'User and all related data deleted successfully' });
   } catch (e) {
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Delete user error:', e);
+    res.status(500).json({ success: false, message: 'Server error: ' + e.message });
   }
 });
 // GET /api/admin/subjects/all — get ALL subjects across all classes
