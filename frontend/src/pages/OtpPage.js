@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../utils/api';
@@ -14,7 +14,11 @@ const OtpPage = () => {
   const location = useLocation();
   const email = location.state?.email || '';
   const name = location.state?.name || 'Friend';
-
+  useEffect(() => {
+  if (!email) {
+    navigate('/signup');
+  }
+}, [email, navigate]);
   const handleInput = (i, val) => {
     if (!/^\d?$/.test(val)) return;
     const newOtp = [...otp];
