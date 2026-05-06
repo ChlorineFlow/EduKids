@@ -26,8 +26,10 @@ const CreateQuizPage = () => {
   const [error, setError] = useState('');
 
   const [quizForm, setQuizForm] = useState({
-    title: '', description: '', timerMinutes: '', chapterId: ''
-  });
+  title: '', description: '', timerMinutes: '', chapterId: '', language: 'en'
+});
+const [isLangSubject, setIsLangSubject] = useState(false);
+const [lockedLanguage, setLockedLanguage] = useState('en');
 
   const [qType, setQType] = useState('MCQ');
   const [qForm, setQForm] = useState({
@@ -87,10 +89,27 @@ const CreateQuizPage = () => {
   const subjectsByClass = (cls) => allSubjects.filter(s => s.class === parseInt(cls));
 
   const handleSubjectSelect = (subjectId) => {
-    setSelectedSubject(subjectId);
-    setQuizForm(f => ({ ...f, chapterId: '' }));
-    fetchChapters(subjectId);
-  };
+  setSelectedSubject(subjectId);
+  setQuizForm(f => ({ ...f, chapterId: '' }));
+  fetchChapters(subjectId);
+
+  // Check if language subject
+  const subject = allSubjects.find(s => s.id.toString() === subjectId);
+  if (subject?.isLang) {
+    setIsLangSubject(true);
+    const subjectName = subject.name.toLowerCase();
+    let lang = 'en';
+    if (subjectName === 'hindi') lang = 'hi';
+    else if (subjectName === 'english') lang = 'en';
+    else if (subjectName.includes('punjabi')) lang = 'pa';
+    setLockedLanguage(lang);
+    setQuizForm(f => ({ ...f, language: lang }));
+  } else {
+    setIsLangSubject(false);
+    setLockedLanguage('en');
+    setQuizForm(f => ({ ...f, language: 'en' }));
+  }
+};
 
   const createQuiz = async (e) => {
     e.preventDefault();
@@ -100,13 +119,14 @@ const CreateQuizPage = () => {
     setLoading(true);
     try {
       const r = await api.post('/teacher/quiz/create', {
-        subjectId: parseInt(selectedSubject),
-        chapterId: quizForm.chapterId ? parseInt(quizForm.chapterId) : null,
-        title: quizForm.title,
-        description: quizForm.description,
-        timerMinutes: quizForm.timerMinutes ? parseInt(quizForm.timerMinutes) : null,
-        classLevel: parseInt(selectedClass) || 1
-      });
+  subjectId: parseInt(selectedSubject),
+  chapterId: quizForm.chapterId ? parseInt(quizForm.chapterId) : null,
+  title: quizForm.title,
+  description: quizForm.description,
+  timerMinutes: quizForm.timerMinutes ? parseInt(quizForm.timerMinutes) : null,
+  classLevel: parseInt(selectedClass) || 1,
+  language: quizForm.language
+});
       setCreatedQuiz(r.data.data);
       setStep('questions');
       showSuccess('Quiz created! Now add questions.');
@@ -321,7 +341,57 @@ const CreateQuizPage = () => {
                         placeholder="Instructions for students..." rows={2}
                         className={`${inputCls} resize-none`} />
                     </div>
-
+                    {/* Language Selector */}
+<div>
+  <label className="block text-gray-700 font-bold mb-1 text-sm">
+    🌐 Quiz Language
+  </label>
+  {isLangSubject ? (
+    // LOCKED for language subjects
+    <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+      <span className="text-2xl">
+        {lockedLanguage === 'hi' ? '🇮🇳' :
+         lockedLanguage === 'en' ? '🇬🇧' : '🟡'}
+      </span>
+      <div>
+        <p className="font-bold text-gray-700 text-sm">
+          {lockedLanguage === 'hi' ? 'Hindi (हिंदी)' :
+           lockedLanguage === 'en' ? 'English' : 'Punjabi (ਪੰਜਾਬੀ)'}
+        </p>
+        <p className="text-xs text-orange-600 font-semibold mt-0.5">
+          🔒 Language locked — this is a language subject
+        </p>
+      </div>
+    </div>
+  ) : (
+    // FREE selection for non-language subjects
+    <div>
+      <p className="text-xs text-gray-500 mb-2 font-semibold">
+        Select the language for this quiz. Students with matching language preference will see it.
+      </p>
+      <div className="flex gap-3">
+        {[
+          { code: 'en', label: '🇬🇧 English' },
+          { code: 'hi', label: '🇮🇳 Hindi' },
+          { code: 'pa', label: '🟡 Punjabi' },
+        ].map(lang => (
+          <button type="button" key={lang.code}
+            onClick={() => setQuizForm(f => ({ ...f, language: lang.code }))}
+            className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all border-2 ${
+              quizForm.language === lang.code
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-blue-200 hover:bg-blue-50'
+            }`}>
+            {lang.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-blue-500 mt-2 font-semibold">
+        ℹ️ Students who selected {quizForm.language === 'en' ? 'English' : quizForm.language === 'hi' ? 'Hindi' : 'Punjabi'} will see this quiz
+      </p>
+    </div>
+  )}
+</div>
                     <div>
                       <label className="block text-gray-700 font-bold mb-1 text-sm">⏱️ Timer (minutes) — Leave empty for no timer</label>
                       <input type="number" value={quizForm.timerMinutes} min="1" max="180"
@@ -561,12 +631,20 @@ const CreateQuizPage = () => {
                             <p className="text-xs text-gray-400 mt-0.5">{quiz.description}</p>
                           )}
                           <div className="text-sm text-gray-500 mt-1 flex flex-wrap gap-2">
-                            <span>{quiz.subject?.icon} {quiz.subject?.name}</span>
-                            <span>• Class {quiz.classLevel}</span>
-                            <span>• {quiz._count?.questions} questions</span>
-                            <span>• {quiz._count?.attempts} attempts</span>
-                            {quiz.timerMinutes && <span>• ⏱️ {quiz.timerMinutes} min</span>}
-                          </div>
+  <span>{quiz.subject?.icon} {quiz.subject?.name}</span>
+  <span>• Class {quiz.classLevel}</span>
+  <span>• {quiz._count?.questions} questions</span>
+  <span>• {quiz._count?.attempts} attempts</span>
+  {quiz.timerMinutes && <span>• ⏱️ {quiz.timerMinutes} min</span>}
+  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+    quiz.language === 'hi' ? 'bg-orange-100 text-orange-700' :
+    quiz.language === 'pa' ? 'bg-yellow-100 text-yellow-700' :
+    'bg-blue-100 text-blue-700'
+  }`}>
+    {quiz.language === 'hi' ? '🇮🇳 Hindi' :
+     quiz.language === 'pa' ? '🟡 Punjabi' : '🇬🇧 English'}
+  </span>
+</div>
                         </div>
                         <span className={`text-xs font-bold px-3 py-1 rounded-full flex-shrink-0 ml-3 ${
                           quiz.isPublished

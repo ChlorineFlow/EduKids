@@ -134,6 +134,7 @@ model Quiz {
   timerMinutes Int?
   classLevel   Int      @default(1)
   isPublished  Boolean  @default(false)
+  language    Language @default(en)
   createdAt    DateTime @default(now())
 
   subject   Subject       @relation(fields: [subjectId], references: [id])

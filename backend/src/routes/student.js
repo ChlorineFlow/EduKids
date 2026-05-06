@@ -169,20 +169,46 @@ if (content.length === 0) {
 });
 
 // GET /api/student/quizzes/:subjectId
-router.get("/quizzes/:subjectId", async (req, res) => {
+// GET /api/student/quizzes/:subjectId
+router.get('/quizzes/:subjectId', async (req, res) => {
   try {
     const student = req.user.student;
+
+    // Get subject to check if language subject
+    const subject = await prisma.subject.findUnique({
+      where: { id: parseInt(req.params.subjectId) }
+    });
+
+    let languageFilter = {};
+
+    if (subject?.isLang) {
+      // Language subject — quiz must match subject's language
+      let subjectLang = 'en';
+      const subjectName = subject.name.toLowerCase();
+      if (subjectName === 'hindi') subjectLang = 'hi';
+      else if (subjectName === 'english') subjectLang = 'en';
+      else if (subjectName.includes('punjabi') || subjectName === 'ਪੰਜਾਬੀ') subjectLang = 'pa';
+      languageFilter = { language: subjectLang };
+    } else {
+      // Non-language subject — show quizzes in student's selected language
+      languageFilter = { language: student.language };
+    }
+
     const quizzes = await prisma.quiz.findMany({
-      where: { subjectId: parseInt(req.params.subjectId) },
+      where: {
+        subjectId: parseInt(req.params.subjectId),
+        isPublished: true,
+        ...languageFilter
+      },
       include: {
         teacher: { include: { user: { select: { name: true } } } },
-        _count: { select: { questions: true } },
-      },
+        _count: { select: { questions: true } }
+      }
     });
 
     res.json({ success: true, data: quizzes });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

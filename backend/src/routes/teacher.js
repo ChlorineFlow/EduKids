@@ -162,7 +162,8 @@ router.post('/quiz/create', async (req, res) => {
         description: description || null,
         timerMinutes: timerMinutes ? parseInt(timerMinutes) : null,
         classLevel: parseInt(classLevel) || 1,
-        isPublished: false
+        isPublished: false,
+        language: quizLanguage
       }
     });
     res.status(201).json({ success: true, message: 'Quiz created!', data: { ...quiz, language: quizLanguage } });

@@ -213,6 +213,14 @@ const QuizPage = () => {
                           ⏱️ {q.timerMinutes} min
                         </span>
                       )}
+                      <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+  q.language === 'hi' ? 'bg-orange-100 text-orange-700' :
+  q.language === 'pa' ? 'bg-yellow-100 text-yellow-700' :
+  'bg-blue-100 text-blue-700'
+}`}>
+  {q.language === 'hi' ? '🇮🇳 Hindi Quiz' :
+   q.language === 'pa' ? '🟡 Punjabi Quiz' : '🇬🇧 English Quiz'}
+</span>
                       <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-bold">
                         By {q.teacher?.user?.name}
                       </span>
