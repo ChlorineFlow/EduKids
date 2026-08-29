@@ -1,5 +1,5 @@
 # 🎓 EduKids - Multilingual Learning Platform
-
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 A full-stack, production-ready kids learning platform for Classes 1–6 with multilingual support (English, Hindi, Punjabi), AI-powered assistant, quiz system, gamification, and role-based dashboards.
 
 ---
